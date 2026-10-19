@@ -2813,8 +2813,10 @@ function rebuildPYCYData(){
       pym: pyD?pyD.m:{}, cym: cyD?cyD.m:{}
     });
   });
-  out.sort((a,b)=>b.cy-a.cy);
-  PYCY_DATA = out;
+  const filtered=out.filter(o=>o&&o.o&&(o.py!==0||o.cy!==0));
+  filtered.sort((a,b)=>b.cy-a.cy);
+  PYCY_DATA = filtered;
+  console.log('rebuildPYCYData: pyYr='+pyYr+' cyYr='+cyYr+' total='+PYCY_DATA.length);
 }
 
 // Rebuild PYCY_DATA from the DAILY store restricted to a date range.
