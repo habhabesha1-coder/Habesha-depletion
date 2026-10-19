@@ -2459,17 +2459,31 @@ async function cloudLoadAll(silent){
     Object.keys(DAILY).forEach(k=>delete DAILY[k]);
     STK_DATA=[]; UPLOAD_LOG=[];
 
-    // Fetch all three normalized tables in parallel — each is indexed and fast
-    const [odRes, detRes, stkRes, logRes] = await Promise.all([
-      sbc.from('outlet_data').select('agent,division,month,total,keg,crates,outlets,feta_beer,habesha_keg,habesha_beer,kidame,kidame_draught,negus_malt,batch_id').limit(50000),
-      sbc.from('outlet_detail').select('outlet_name,agent,division,year,total,freq,last_month,monthly_total,monthly_keg,monthly_crates,monthly_prods,is_cold,batch_id').limit(50000),
-      sbc.from('stockist_data').select('stockist,stockist_id,agent,region,month,year,total,keg,crates,feta_beer,habesha_keg,habesha_beer,kidame,kidame_draught,negus_malt,batch_id').limit(50000),
+    // Paginated fetch — bypasses the 1000 row server default
+    const fetchAll=async(table,cols)=>{
+      const PAGE=1000;
+      let all=[],from=0;
+      while(true){
+        const {data,error}=await sbc.from(table).select(cols).range(from,from+PAGE-1);
+        if(error){console.warn(table,'fetch error:',error.message);break;}
+        if(!data||!data.length) break;
+        all=[...all,...data];
+        if(data.length<PAGE) break;
+        from+=PAGE;
+      }
+      return all;
+    };
+
+    const [odData,detData,stkData,logRes]=await Promise.all([
+      fetchAll('outlet_data','agent,division,month,total,keg,crates,outlets,feta_beer,habesha_keg,habesha_beer,kidame,kidame_draught,negus_malt,batch_id'),
+      fetchAll('outlet_detail','outlet_name,agent,division,year,total,freq,last_month,monthly_total,monthly_keg,monthly_crates,monthly_prods,is_cold,batch_id'),
+      fetchAll('stockist_data','stockist,stockist_id,agent,region,month,year,total,keg,crates,feta_beer,habesha_keg,habesha_beer,kidame,kidame_draught,negus_malt,batch_id'),
       sbc.from('app_data').select('payload').eq('dataset','upload_log').eq('year','all').maybeSingle()
     ]);
 
-    if(odRes.error)console.warn('outlet_data fetch error:',odRes.error.message);
-    if(detRes.error)console.warn('outlet_detail fetch error:',detRes.error.message);
-    if(stkRes.error)console.warn('stockist_data fetch error:',stkRes.error.message);
+    const odRes={data:odData,error:null};
+    const detRes={data:detData,error:null};
+    const stkRes={data:stkData,error:null};
 
     // ── Build RAW from outlet_data ─────────────────────────────────────────
     (odRes.data||[]).forEach(r=>{
