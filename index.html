@@ -121,7 +121,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:1
 <div class="hdr">
   <div class="logo"><div class="logo-icon">H</div><div><div class="logo-text">Habesha Breweries</div><div class="logo-sub">DSIO · Depletion v5</div></div></div>
   <div class="hdr-mid">
-    <div class="yr-toggle"><button class="yr-btn active" onclick="setYear('2025')">2025</button><button class="yr-btn" onclick="setYear('2026')">2026</button></div>
+    <div class="yr-toggle" id="yr-toggle-wrap"><button class="yr-btn active" onclick="setYear('2025')">2025</button><button class="yr-btn" onclick="setYear('2026')">2026</button></div>
     <div id="save-pill" class="save-pill"></div>
   </div>
   <!-- Upload progress bar — fixed bottom of screen -->
@@ -1316,7 +1316,8 @@ function drawSTKTable(tab,byStockist,PY,CY2){
 // ============================================================
 function drAllRows(){return Object.values(DAILY).flat();}
 function populateDropRateFilters(){
-  const yrs=Object.keys(DAILY).sort();
+  // Use RAW years since DAILY is synthesized from RAW
+  const yrs=Object.keys(RAW).filter(y=>(RAW[y]||[]).length>0).sort();
   const ys=qs('dr-year');
   if(ys){const cur=ys.value;ys.innerHTML=yrs.map(y=>`<option value="${y}">${y}</option>`).join('')||'<option value="">—</option>';if(yrs.includes(cur))ys.value=cur;else if(yrs.length)ys.value=yrs[yrs.length-1];}
   const divs=[...new Set(drAllRows().map(r=>r.div))].filter(Boolean).sort();
@@ -1404,6 +1405,20 @@ function nav(name,el){
   if(outLbl)outLbl.style.display=name==='stockist'?'none':'';
   try{if(PMAP[name])PMAP[name]();}catch(e){console.error('Page error:',name,e);}
 }
+function buildYearButtons(){
+  const wrap=document.getElementById('yr-toggle-wrap');
+  if(!wrap)return;
+  const years=[...new Set(Object.keys(RAW))].filter(y=>(RAW[y]||[]).length>0).sort();
+  if(!years.length)return;
+  // Keep CY as the most recent year
+  const curCY=years[years.length-1];
+  wrap.innerHTML=years.map(y=>
+    `<button class="yr-btn${y===CY?' active':''}" onclick="setYear('${y}')">${y}</button>`
+  ).join('');
+  // If current CY not in available years, update it
+  if(!years.includes(CY)) setYear(curCY);
+}
+
 function setYear(y){
   CY=y;F={d:'',m:'',a:''};
   document.querySelectorAll('.yr-btn').forEach(b=>b.classList.toggle('active',b.textContent===y));
@@ -2624,6 +2639,7 @@ async function cloudLoadAll(silent){
     try{rebuildPYCYData();}catch(e){console.error('rebuildPYCYData failed:',e);}
     populateFilters();
     try{populateSTKFilters();}catch(e){}
+    try{buildYearButtons();}catch(e){}
     try{populatePCFilters();}catch(e){}
     try{populatePCMonthFilter();}catch(e){}
     try{renderUploadLog();}catch(e){}
