@@ -2559,6 +2559,17 @@ async function cloudLoadAll(silent){
     }));
     STK_LOADED=STK_DATA.length>0;
 
+    // ── Rebuild COLD from OSUM — outlets active historically but zero last 2 months
+    Object.keys(OSUM).forEach(yr=>{
+      const allM=[...new Set(OSUM[yr].flatMap(o=>Object.keys(o.m||{})))].sort();
+      const last2=allM.slice(-2);
+      if(!last2.length)return;
+      COLD[yr]=OSUM[yr].filter(o=>
+        o.t>0 && last2.every(m=>!o.m[m]||o.m[m]===0)
+      ).map(o=>({o:o.o,a:o.a,d:o.d,t:o.t,last:o.last||'',freq:o.freq||0}))
+       .sort((a,b)=>b.t-a.t);
+    });
+
     // ── Synthesize DAILY from RAW for drop rate page ─────────────────────────
     Object.entries(RAW).forEach(([yr,rows])=>{
       DAILY[yr]=rows.map(r=>({
